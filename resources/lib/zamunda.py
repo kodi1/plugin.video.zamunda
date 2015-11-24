@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import os
 import re
 import urllib
-from requests import Session, codes
+import requests
 from bs4 import BeautifulSoup
+import simplejson as json
 
 class zamunda():
   def __init__(
@@ -12,13 +14,14 @@ class zamunda():
                 base_url,
                 usr,
                 passwd,
+                path,
                 baud = 0,
                 bsub = 0,
                 dbg = False,
                 ):
     self.__usr = usr
     self.__pass = passwd
-    self.__s = Session()
+    self.__s = requests.Session()
     self.__base_url = base_url
     self.__bsub = bsub
     self.__baud = baud
@@ -30,7 +33,6 @@ class zamunda():
       ('tr', 'http://94.228.192.98/announce'),
       ('tr', 'udp://9.rarbg.com:2710/announce')
     )
-
     self.__categories = [
                     {'cat_ids':'5','cat_name':u'HD Movies'},
                     {'cat_ids':'31','cat_name':u'Science Movies'},
@@ -60,6 +62,31 @@ class zamunda():
 
     self.__ids = [d['cat_ids'] for d in self.__categories]
 
+    self.__s_path = os.path.join(path, '', 'sesion')
+    if not os.path.exists(os.path.dirname(self.__s_path)):
+      os.makedirs(os.path.dirname(self.__s_path))
+    if not os.path.exists(self.__s_path):
+      self.__log('Use Login')
+      self.__do_login()
+      with open(self.__s_path, 'wb') as f:
+        json.dump(
+                    requests.utils.dict_from_cookiejar(self.__s.cookies),
+                    f,
+                    sort_keys=True,
+                    indent=True,
+                    encoding='utf-8',
+                  )
+    else:
+      self.__log('Use Sessinon')
+      with open(self.__s_path, 'rb') as f:
+        self.__s.cookies = requests.utils.cookiejar_from_dict(json.load(f))
+
+  def __del__(self):
+    if getattr(self, '_use_log', None):
+      self.__do_logout()
+    self.__log('Exit')
+    self.__s.close()
+
   def __log(self, msg):
     if self.__dbg:
       if isinstance(msg, basestring):
@@ -67,18 +94,19 @@ class zamunda():
       else:
         print str(msg)
 
+  def __do_logout(self):
+    self.__log('Logout')
+    self.__s.get('%s/logout.php' % self.__base_url, headers = self.__HEADERS)
+
   def __do_login(self):
     r = self.__s.post('%s/takelogin.php' % self.__base_url, data={'username' : self.__usr, 'password' : self.__pass}, headers = self.__HEADERS)
-    if re.search(self.__usr, r.text, re.IGNORECASE):
+    if r.status_code == requests.codes.ok and re.search(self.__usr, r.text, re.IGNORECASE):
       self.__log('Login OK')
+      self._use_log = True
       return True
     else:
       self.__log('Login Error')
       raise Exception("LoginFail")
-
-  def __do_logout(self):
-    self.__log('Logout')
-    self.__s.get('%s/logout.php' % self.__base_url, headers = self.__HEADERS)
 
   def __info_get(self, txt):
     if txt:
@@ -121,36 +149,38 @@ class zamunda():
       self.__log('Search string: %s' % (search,))
 
     self.__log('Payload: %s' % (str(fnd),))
-    if self.__do_login():
-      r = self.__s.get('%s/browse.php' % self.__base_url, params=fnd, headers = self.__HEADERS)
-      sp = BeautifulSoup(r.text, 'html5lib')
-      for link in sp.findAll('a', href=re.compile(r'magnet:\?xt=.*')):
-        pr = link.find_parent('td')
-        if cat != '0' or pr.find_previous_sibling('td').find('a', href=re.compile(r'list\?cat=\d+'))['href'].split('=')[1] in self.__ids:
-          ss = pr.find_next_siblings('td')
-          dat = pr.find('a', href=re.compile(r'banan\?id=\d+'))
-          r = self.__info_get(dat.get('onmouseover'))
-          yield {
-              'label': self.__claean_name(dat.string),
-              'path': '%s&%s' % (link['href'], urllib.urlencode(self.__CUSTOM_TRACKERS)),
-              'is_playable': 'True',
-              'info': {'plot': '[COLOR CC00FF00]%s - DLs:%s S:%s[/COLOR][CR]%s' % (ss[3].get_text(' '), ss[4].get_text(' '), ss[5].string, r['info'],)},
-              'thumbnail': r['img'],
-              'cat': cat,
-              'page': page,
-              'search': search,
-              'properties': {'fanart_image': r['img']}
-          }
-      nn = sp.find('b', text=re.compile(u'(?:Следваща.)'))
-      if nn and nn.find_parent('a'):
+    r = self.__s.get('%s/bananas' % self.__base_url, params=fnd, headers = self.__HEADERS)
+    sp = BeautifulSoup(r.text, 'html5lib')
+    for link in sp.findAll('a', href=re.compile(r'\/download_go\.php\?id=\d+&m=x')):
+      pr = link.find_parent('td')
+      if cat != '0' or pr.find_previous_sibling('td').find('a', href=re.compile(r'list\?cat=\d+'))['href'].split('=')[1] in self.__ids:
+        ss = pr.find_next_siblings('td')
+        dat = pr.find('a', href=re.compile(r'banan\?id=\d+'))
+        r = self.__info_get(dat.get('onmouseover'))
         yield {
-            'label': '>> Next page',
-            'path': 'next_page',
+            'label': self.__claean_name(dat.string),
+            'path': link['href'],
+            'is_playable': 'True',
+            'info': {'plot': '[COLOR CC00FF00]%s - DLs:%s S:%s[/COLOR][CR]%s' % (ss[3].get_text(' '), ss[4].get_text(' '), ss[5].string, r['info'],)},
+            'thumbnail': r['img'],
             'cat': cat,
-            'page': page+1,
-            'is_playable': 'False',
+            'page': page,
             'search': search,
+            'properties': {'fanart_image': r['img']}
         }
-      self.__do_logout()
-    self.__s.close()
+    nn = sp.find('b', text=re.compile(u'(?:Следваща.)'))
+    if nn and nn.find_parent('a'):
+      yield {
+          'label': '>> Next page',
+          'path': 'next_page',
+          'cat': cat,
+          'page': page+1,
+          'is_playable': 'False',
+          'search': search,
+      }
 
+  def get_magnet(self, p):
+    r = self.__s.get('%s%s' % (self.__base_url, p), headers = self.__HEADERS)
+    sp = BeautifulSoup(r.text, 'html5lib').find('a', href=re.compile(r'\/magnetlink\/magnet'))
+    if sp:
+      return'%s&%s' % (sp['href'].split('link/')[1], urllib.urlencode(self.__CUSTOM_TRACKERS),)

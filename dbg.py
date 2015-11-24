@@ -4,6 +4,7 @@
 import os, sys, traceback
 
 usr, psw = os.getenv('LOGIN', 'user:pass').split(':')
+print usr, psw
 dbg = True
 porn = True
 url = 'http://zamunda.net'
@@ -16,12 +17,20 @@ if __name__ == '__main__':
   if len(sys.argv) != 2:
     sys.exit('wrong argument')
 
-  z = zamunda(xxx=True, base_url=url, usr=usr, passwd=psw, dbg=True)
+  z = zamunda(
+                xxx=True,
+                base_url=url,
+                usr=usr,
+                passwd=psw,
+                path=os.path.join(os.getcwd(), '', 'tmp'),
+                dbg=True)
   for i in z.index():
     print i
   try:
-    for r in z.page(0, 0, sys.argv[1]):
-      print r
+    for r in z.page(0, '0', sys.argv[1]):
+      if r['path'] != 'next_page':
+        print z.get_magnet(r['path'])
+
   except Exception, e:
     traceback.print_exc()
     print str(e.args[0]), sys.exc_info()

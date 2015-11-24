@@ -75,10 +75,14 @@ try:
               passwd = __addon__.getSetting('password'),
               baud = ba,
               bsub = bs,
+              path = __profile__,
               dbg = dbg
             )
 except Exception, e:
-  Notify('Module Import', 'Fail')
+  if e.args[0] == 'LoginFail':
+    Notify('LoginFail', 'Check login data')
+  else:
+    Notify('Module Import', 'Fail')
   traceback.print_exc()
   update('exception', e.args[0], sys.exc_info())
   pass
@@ -94,10 +98,7 @@ def index_video(page, cat, search):
       add_video(c)
 
   except Exception, e:
-    if e.args[0] == 'LoginFail':
-      Notify('LoginFail', 'Check login data')
-    else:
-      Notify('Data', 'Fetch Fail')
+    Notify('Data', 'Fetch Fail')
     traceback.print_exc()
     update('exception', '%s->%s' % (e.args[0], c.get('label', None)), sys.exc_info())
     pass
@@ -115,7 +116,7 @@ def index_cat():
     pass
 
 def play_video(url, name):
-  item = xbmcgui.ListItem(path='plugin://plugin.video.pulsar/play?uri=%s' % (str(url),))
+  item = xbmcgui.ListItem(path='plugin://plugin.video.pulsar/play?uri=%s' % (z.get_magnet(url),))
   xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
   update(name, url)
 
