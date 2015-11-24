@@ -150,8 +150,24 @@ class zamunda():
 
     self.__log('Payload: %s' % (str(fnd),))
     r = self.__s.get('%s/bananas' % self.__base_url, params=fnd, headers = self.__HEADERS)
+
+    if self.__dbg:
+       with open(os.path.join(os.path.dirname(self.__s_path), '', 'dump.html'), 'wb') as f:
+         f.write(r.text.encode('utf-8'))
+
+    if r.status_code != requests.codes.ok:
+      self.__log('Page Error')
+      raise Exception("PageError")
+
+    if not re.search(self.__usr, r.text, re.IGNORECASE):
+      if os.path.exists(self.__s_path):
+        os.remove(self.__s_path)
+      self.__log('Sesion Error')
+      raise Exception("SesionError")
+
     sp = BeautifulSoup(r.text, 'html5lib')
-    for link in sp.findAll('a', href=re.compile(r'\/download_go\.php\?id=\d+&m=x')):
+    #for link in sp.findAll('a', href=re.compile(r'\/download_go\.php\?id=\d+&m=x')):
+    for link in sp.findAll('a', href=re.compile(r'\/magnetlink\/*')):
       pr = link.find_parent('td')
       if cat != '0' or pr.find_previous_sibling('td').find('a', href=re.compile(r'list\?cat=\d+'))['href'].split('=')[1] in self.__ids:
         ss = pr.find_next_siblings('td')
@@ -181,6 +197,6 @@ class zamunda():
 
   def get_magnet(self, p):
     r = self.__s.get('%s%s' % (self.__base_url, p), headers = self.__HEADERS)
-    sp = BeautifulSoup(r.text, 'html5lib').find('a', href=re.compile(r'\/magnetlink\/magnet'))
-    if sp:
-      return'%s&%s' % (sp['href'].split('link/')[1], urllib.urlencode(self.__CUSTOM_TRACKERS),)
+    s = re.search(r"^.*?href='(magnet.*)'", r.text, re.M|re.I)
+    if s:
+      return'%s&%s' % (s.group(1), urllib.urlencode(self.__CUSTOM_TRACKERS),)

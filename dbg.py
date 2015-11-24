@@ -16,22 +16,22 @@ from zamunda import zamunda
 if __name__ == '__main__':
   if len(sys.argv) != 2:
     sys.exit('wrong argument')
-
-  z = zamunda(
-                xxx=True,
-                base_url=url,
-                usr=usr,
-                passwd=psw,
-                path=os.path.join(os.getcwd(), '', 'tmp'),
-                dbg=True)
-  for i in z.index():
-    print i
   try:
+    z = zamunda(
+                  xxx=True,
+                  base_url=url,
+                  usr=usr,
+                  passwd=psw,
+                  path=os.path.join(os.getcwd(), '', 'tmp'),
+                  dbg=True)
+    for i in z.index():
+      print i
+
     for r in z.page(0, '0', sys.argv[1]):
       if r['path'] != 'next_page':
+        print r['info']['plot']
         print z.get_magnet(r['path'])
-
   except Exception, e:
     traceback.print_exc()
-    print str(e.args[0]), sys.exc_info()
+    print '%s, %s' % (str(e.args[0]), sys.exc_info())
     pass

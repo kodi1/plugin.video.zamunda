@@ -85,7 +85,7 @@ except Exception, e:
     Notify('Module Import', 'Fail')
   traceback.print_exc()
   update('exception', e.args[0], sys.exc_info())
-  pass
+  raise
 
 def index_video(page, cat, search):
   try:
@@ -98,7 +98,11 @@ def index_video(page, cat, search):
       add_video(c)
 
   except Exception, e:
-    Notify('Data', 'Fetch Fail')
+    if e.args[0] == 'SesionError':
+      Notify(str(e.args[0]),  'Check login data and try again')
+    else:
+      Notify(__scriptname__, str(e.args[0]))
+
     traceback.print_exc()
     update('exception', '%s->%s' % (e.args[0], c.get('label', None)), sys.exc_info())
     pass
@@ -110,13 +114,16 @@ def index_cat():
       add_cat(c, 'DefaultFolder.png', 'DefaultFolder.png')
 
   except Exception, e:
-    Notify('Data', 'Fetch Fail')
+    Notify(__scriptname__, str(e.args[0]))
     traceback.print_exc()
     update('exception', '%s->%s' % (e.args[0], c.get('label', None)), sys.exc_info())
     pass
 
 def play_video(url, name):
-  item = xbmcgui.ListItem(path='plugin://plugin.video.pulsar/play?uri=%s' % (z.get_magnet(url),))
+  #p = 'plugin://plugin.video.yatp/?action=play&torrent=%s&file_index=dialog' % (z.get_magnet(url),)
+  p = 'plugin://plugin.video.pulsar/play?uri=%s' % (z.get_magnet(url),)
+
+  item = xbmcgui.ListItem(path=p)
   xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
   update(name, url)
 
