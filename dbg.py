@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     for r in z.page(0, '0', sys.argv[1]):
       if r['path'] != 'next_page':
-        print r['info']['plot']
+        print r['info']['plot'].encode('utf8')
         print z.get_magnet(r['path'])
   except Exception, e:
     traceback.print_exc()

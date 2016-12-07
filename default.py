@@ -149,20 +149,9 @@ def add_video(dat):
     add_cat(dat, 'DefaultFolder.png', 'DefaultFolder.png')
 
 def set_viewmode():
-  if (xbmc.getSkinDir() != 'skin.confluence') or __addon__.getSetting('viewset') != 'true':
+  if __addon__.getSetting('viewset') == '':
     return
-  mode = {
-            '0': '52',
-            '1': '502',
-            '2': '51',
-            '3': '500',
-            '4': '501',
-            '5': '508',
-            '6': '504',
-            '7': '503',
-            '8': '515'
-          }
-  xbmc.executebuiltin('Container.SetViewMode(%s)' % mode[__addon__.getSetting('viewmode')])
+  xbmc.executebuiltin('Container.SetViewMode(%s)' % __addon__.getSetting('viewset'))
 
 def get_params():
   param = []
